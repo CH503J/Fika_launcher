@@ -105,12 +105,6 @@ class AppLauncherGUI:
             self.b_started = True
             self.log(f"B 文件已启动，PID: {self.b_pid}")
 
-            # 获取B进程的子进程PID（如果有）
-            parent_process = psutil.Process(self.b_pid)
-            for child in parent_process.children():
-                if child.name() == "EscapeFromTarkov.exe":  # 假设子进程名为 EscapeFromTarkov.exe
-                    self.b_child_pid = child.pid
-                    self.log(f"B 文件的子进程（C）已启动，PID: {self.b_child_pid}")
         except Exception as e:
             self.log(f"启动 B 文件失败: {e}")
 
