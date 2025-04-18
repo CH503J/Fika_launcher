@@ -6,6 +6,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog
 from config.config_manager import load_config, save_config
+import psutil  # 导入psutil模块
 
 class AppLauncherGUI:
     def __init__(self, root):
@@ -20,6 +21,7 @@ class AppLauncherGUI:
         self.a_pid = None
         self.b_pid = None
         self.b_started = False
+        self.b_child_pid = None  # 添加子进程PID属性
 
         self.create_widgets()
 
@@ -102,11 +104,20 @@ class AppLauncherGUI:
             self.b_pid = process.pid
             self.b_started = True
             self.log(f"B 文件已启动，PID: {self.b_pid}")
+
+            # 获取B进程的子进程PID（如果有）
+            parent_process = psutil.Process(self.b_pid)
+            for child in parent_process.children():
+                if child.name() == "EscapeFromTarkov.exe":  # 假设子进程名为 EscapeFromTarkov.exe
+                    self.b_child_pid = child.pid
+                    self.log(f"B 文件的子进程（C）已启动，PID: {self.b_child_pid}")
         except Exception as e:
             self.log(f"启动 B 文件失败: {e}")
 
     def terminate_processes(self):
         killed = []
+
+        # 先关闭 A 和 B 的主进程
         for name, pid in [("A", self.a_pid), ("B", self.b_pid)]:
             if pid:
                 try:
@@ -114,6 +125,32 @@ class AppLauncherGUI:
                     killed.append(f"{name} 进程（PID {pid}）已关闭")
                 except Exception as e:
                     killed.append(f"关闭 {name} 进程失败: {e}")
+
+        # 再检测并关闭 B 的子进程 C（EscapeFromTarkov.exe）
+        c_killed = False
+        if self.b_pid:
+            try:
+                parent = psutil.Process(self.b_pid)
+
+                # 尝试等待子进程出现（最多3秒）
+                for _ in range(3):
+                    children = parent.children(recursive=True)
+                    c_proc = next((child for child in children if child.name() == "EscapeFromTarkov.exe"), None)
+                    if c_proc:
+                        c_proc.kill()
+                        killed.append(f"C 进程（EscapeFromTarkov.exe，PID {c_proc.pid}）已关闭")
+                        c_killed = True
+                        break
+                    time.sleep(1)
+
+                if not c_killed:
+                    killed.append("未检测到 C 进程（EscapeFromTarkov.exe）或其已提前退出")
+
+            except psutil.NoSuchProcess:
+                killed.append("B 进程已退出，无法检测子进程")
+            except Exception as e:
+                killed.append(f"检测/关闭 C 进程失败: {e}")
+
         self.log("\n".join(killed) if killed else "无可关闭的进程")
 
     def log(self, message):
