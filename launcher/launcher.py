@@ -6,7 +6,8 @@ import time
 import tkinter as tk
 from tkinter import filedialog
 from config.config_manager import load_config, save_config
-import psutil  # 导入psutil模块
+import psutil
+from tkinter import ttk
 
 class AppLauncherGUI:
     def __init__(self, root):
@@ -51,14 +52,26 @@ class AppLauncherGUI:
         tk.Button(self.root, text="一键关闭", command=self.terminate_processes).grid(row=3, column=0, columnspan=3,
                                                                                      pady=10)
 
-        tk.Label(self.root, text="日志输出:").grid(row=4, column=0, padx=10, pady=10, sticky="ne")
-        self.log_text = tk.Text(self.root, wrap=tk.WORD, state=tk.DISABLED)
-        self.log_text.grid(row=4, column=1, columnspan=2, padx=10, pady=10, sticky="nsew")
+        # 创建标签页
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.grid(row=4, column=1, columnspan=2, padx=10, pady=10, sticky="nsew")
 
-        # 让输出框随窗口变化
-        self.root.grid_rowconfigure(4, weight=1)  # 设置日志框所在行随窗口大小变化
-        self.root.grid_columnconfigure(1, weight=1)  # 设置日志框所在列宽度自适应
-        self.root.grid_columnconfigure(2, weight=1)  # 设置日志框所在列宽度自适应
+        # 创建一个标签页用于 GUI 日志
+        self.gui_log_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.gui_log_tab, text="GUI日志")
+
+        # 创建日志框（Text控件），并放入GUI日志标签页中
+        self.gui_log_text = tk.Text(self.gui_log_tab, wrap=tk.WORD, state=tk.DISABLED)
+        self.gui_log_text.grid(row=0, column=0, sticky="nsew")
+
+        # 让日志框随窗口变化
+        self.gui_log_tab.grid_rowconfigure(0, weight=1)
+        self.gui_log_tab.grid_columnconfigure(0, weight=1)
+
+        # 设置GUI日志框随窗口大小变化
+        self.root.grid_rowconfigure(4, weight=1)
+        self.root.grid_columnconfigure(1, weight=1)
+        self.root.grid_columnconfigure(2, weight=1)
 
     def select_a_file(self):
         file_path = filedialog.askopenfilename(title="选择 A 文件", filetypes=[("EXE 文件", "*.exe")])
@@ -167,10 +180,11 @@ class AppLauncherGUI:
         self.log("\n".join(killed) if killed else "无可关闭的进程")
 
     def log(self, message):
-        self.log_text.config(state=tk.NORMAL)
-        self.log_text.insert(tk.END, message + "\n")
-        self.log_text.config(state=tk.DISABLED)
-        self.log_text.yview(tk.END)
+        # 始终输出到GUI日志框
+        self.gui_log_text.config(state=tk.NORMAL)
+        self.gui_log_text.insert(tk.END, message + "\n")
+        self.gui_log_text.config(state=tk.DISABLED)
+        self.gui_log_text.yview(tk.END)
 
     def save_config(self):
         save_config({
