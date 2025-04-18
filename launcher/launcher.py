@@ -8,6 +8,7 @@ from tkinter import filedialog
 from config.config_manager import load_config, save_config
 import psutil
 from tkinter import ttk
+import queue
 
 class AppLauncherGUI:
     def __init__(self, root):
@@ -17,6 +18,8 @@ class AppLauncherGUI:
         width = self.config.get("window_width", 500)
         height = self.config.get("window_height", 350)
         self.root.geometry(f"{width}x{height}")
+        self.a_log_queue = queue.Queue()
+        self.root.after(100, self.update_a_log_text)
 
         self.config = load_config()
         self.a_path = tk.StringVar(value=self.config.get("a_path", ""))
@@ -60,6 +63,33 @@ class AppLauncherGUI:
         self.gui_log_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.gui_log_tab, text="GUI日志")
 
+        # 创建一个标签页用于 A 日志
+        self.a_log_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.a_log_tab, text="A")
+
+        # 滚动条
+        a_scrollbar = tk.Scrollbar(self.a_log_tab)
+        a_scrollbar.grid(row=0, column=1, sticky="ns")
+
+        # 日志框（Text 控件）
+        self.a_log_text = tk.Text(
+            self.a_log_tab,
+            wrap=tk.WORD,
+            state=tk.DISABLED,
+            yscrollcommand=a_scrollbar.set
+        )
+        self.a_log_text.grid(row=0, column=0, sticky="nsew")
+
+        # 滚动条与 Text 关联
+        a_scrollbar.config(command=self.a_log_text.yview)
+
+        # 让日志框可以随着窗口变化拉伸
+        self.a_log_tab.grid_rowconfigure(0, weight=1)
+        self.a_log_tab.grid_columnconfigure(0, weight=1)
+
+        self.a_log_tab.grid_rowconfigure(0, weight=1)
+        self.a_log_tab.grid_columnconfigure(0, weight=1)
+
         # 创建日志框（Text控件），并放入GUI日志标签页中
         self.gui_log_text = tk.Text(self.gui_log_tab, wrap=tk.WORD, state=tk.DISABLED)
         self.gui_log_text.grid(row=0, column=0, sticky="nsew")
@@ -72,6 +102,12 @@ class AppLauncherGUI:
         self.root.grid_rowconfigure(4, weight=1)
         self.root.grid_columnconfigure(1, weight=1)
         self.root.grid_columnconfigure(2, weight=1)
+
+    def append_a_log(self, message):
+        self.a_log_text.config(state=tk.NORMAL)
+        self.a_log_text.insert(tk.END, message + "\n")
+        self.a_log_text.config(state=tk.DISABLED)
+        self.a_log_text.yview(tk.END)
 
     def select_a_file(self):
         file_path = filedialog.askopenfilename(title="选择 A 文件", filetypes=[("EXE 文件", "*.exe")])
@@ -96,15 +132,46 @@ class AppLauncherGUI:
             process = subprocess.Popen(
                 a_file_path,
                 cwd=os.path.dirname(a_file_path),
-                creationflags=subprocess.CREATE_NEW_CONSOLE
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                text=True,
+                bufsize=1,
+                encoding="utf-8",
+                errors="replace"
             )
             self.a_pid = process.pid
             self.log(f"A 文件已启动，PID: {self.a_pid}")
 
-            # 启动后台线程监听端口是否被占用
+            # 启动后台线程读取输出
+            threading.Thread(target=self.read_a_output, args=(process,), daemon=True).start()
             threading.Thread(target=self.monitor_port_and_start_b, daemon=True).start()
         except Exception as e:
             self.log(f"启动 A 文件失败: {e}")
+
+    def read_a_output(self, process):
+        for line in iter(process.stdout.readline, ''):
+            self.a_log_queue.put(line.strip())  # 将日志行推入队列
+        process.stdout.close()
+
+    def update_a_log_text(self):
+        try:
+            while True:
+                line = self.a_log_queue.get_nowait()
+                self.a_log_text.config(state=tk.NORMAL)
+                self.a_log_text.insert(tk.END, line + "\n")
+                self.a_log_text.config(state=tk.DISABLED)
+                self.a_log_text.yview(tk.END)
+        except queue.Empty:
+            pass
+        self.root.after(100, self.update_a_log_text)
+
+    def read_a_output(self, process):
+        try:
+            for line in process.stdout:
+                self.append_a_log(line.strip())
+        except Exception as e:
+            self.append_a_log(f"[读取失败] {e}")
 
     def monitor_port_and_start_b(self):
         while not self.b_started:
