@@ -48,11 +48,17 @@ class AppLauncherGUI:
         tk.Button(self.root, text="浏览...", command=self.select_b_file).grid(row=1, column=2, padx=10, pady=10)
 
         tk.Button(self.root, text="启动 A 文件", command=self.start_a_file).grid(row=2, column=0, columnspan=3, pady=10)
-        tk.Button(self.root, text="一键关闭", command=self.terminate_processes).grid(row=3, column=0, columnspan=3, pady=10)
+        tk.Button(self.root, text="一键关闭", command=self.terminate_processes).grid(row=3, column=0, columnspan=3,
+                                                                                     pady=10)
 
         tk.Label(self.root, text="日志输出:").grid(row=4, column=0, padx=10, pady=10, sticky="ne")
-        self.log_text = tk.Text(self.root, width=60, height=10, state=tk.DISABLED)
-        self.log_text.grid(row=4, column=1, columnspan=2, padx=10, pady=10)
+        self.log_text = tk.Text(self.root, wrap=tk.WORD, state=tk.DISABLED)
+        self.log_text.grid(row=4, column=1, columnspan=2, padx=10, pady=10, sticky="nsew")
+
+        # 让输出框随窗口变化
+        self.root.grid_rowconfigure(4, weight=1)  # 设置日志框所在行随窗口大小变化
+        self.root.grid_columnconfigure(1, weight=1)  # 设置日志框所在列宽度自适应
+        self.root.grid_columnconfigure(2, weight=1)  # 设置日志框所在列宽度自适应
 
     def select_a_file(self):
         file_path = filedialog.askopenfilename(title="选择 A 文件", filetypes=[("EXE 文件", "*.exe")])
