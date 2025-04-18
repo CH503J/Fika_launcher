@@ -12,7 +12,10 @@ class AppLauncherGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("App Launcher")
-        self.root.geometry("500x350")
+        self.config = load_config()
+        width = self.config.get("window_width", 500)
+        height = self.config.get("window_height", 350)
+        self.root.geometry(f"{width}x{height}")
 
         self.config = load_config()
         self.a_path = tk.StringVar(value=self.config.get("a_path", ""))
@@ -24,6 +27,16 @@ class AppLauncherGUI:
         self.b_child_pid = None  # 添加子进程PID属性
 
         self.create_widgets()
+
+        self.root.bind("<Configure>", self.on_window_resize)
+
+    def on_window_resize(self, event):
+        if event.widget == self.root:
+            width = self.root.winfo_width()
+            height = self.root.winfo_height()
+            self.config["window_width"] = width
+            self.config["window_height"] = height
+            save_config(self.config)
 
     def create_widgets(self):
         tk.Label(self.root, text="选择 A 文件:").grid(row=0, column=0, padx=10, pady=10, sticky="e")
