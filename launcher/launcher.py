@@ -5,7 +5,7 @@ import threading
 import time
 import tkinter as tk
 from tkinter import filedialog
-from config.config_manager import load_config, save_config
+from config.config import load_config, save_config
 import psutil
 from tkinter import ttk
 import queue
