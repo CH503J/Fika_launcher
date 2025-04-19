@@ -9,6 +9,8 @@ from config.config_manager import load_config, save_config
 import psutil
 from tkinter import ttk
 import queue
+import re
+
 
 class AppLauncherGUI:
     def __init__(self, root):
@@ -150,9 +152,35 @@ class AppLauncherGUI:
             self.log(f"启动 A 文件失败: {e}")
 
     def read_a_output(self, process):
-        for line in iter(process.stdout.readline, ''):
-            self.a_log_queue.put(line.strip())  # 将日志行推入队列
+        # 正则表达式判断日志是否包含错误或警告
+        error_pattern = re.compile(r"(error|fail)", re.IGNORECASE)  # 匹配错误日志
+        warn_pattern = re.compile(r"(warn|warning)", re.IGNORECASE)  # 匹配警告日志
+
+        for line in process.stdout:
+            decoded = line.strip()
+
+            # 如果日志中包含 "error" 或 "fail"，或者 "warn" 或 "warning"（不区分大小写），就显示
+            if error_pattern.search(decoded) or warn_pattern.search(decoded):
+                self.append_a_log(decoded)
+            # 如果是其他日志，不输出
+            else:
+                continue
+
         process.stdout.close()
+
+    def update_progress_line(self, text):
+        self.a_log_text.config(state=tk.NORMAL)
+        # 删除最后一行进度条
+        self.a_log_text.delete("end-2l", "end-1l")  # 删除倒数第二行
+        self.a_log_text.insert("end-1l", text + "\n")  # 插入新的进度条
+        self.a_log_text.config(state=tk.DISABLED)
+        self.a_log_text.yview(tk.END)
+
+    def append_log_line(self, text):
+        self.a_log_text.config(state=tk.NORMAL)
+        self.a_log_text.insert(tk.END, text + "\n")
+        self.a_log_text.config(state=tk.DISABLED)
+        self.a_log_text.yview(tk.END)
 
     def update_a_log_text(self):
         try:
@@ -165,13 +193,6 @@ class AppLauncherGUI:
         except queue.Empty:
             pass
         self.root.after(100, self.update_a_log_text)
-
-    def read_a_output(self, process):
-        try:
-            for line in process.stdout:
-                self.append_a_log(line.strip())
-        except Exception as e:
-            self.append_a_log(f"[读取失败] {e}")
 
     def monitor_port_and_start_b(self):
         while not self.b_started:
