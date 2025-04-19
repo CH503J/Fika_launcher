@@ -80,7 +80,39 @@ class ProcessManager:
 
     def terminate_processes(self):
         killed = []
-        # 终止进程的逻辑保持不变...
+        # 先关闭 A 和 B 的主进程
+        for name, pid in [("A", self.a_pid), ("B", self.b_pid)]:
+            if pid:
+                try:
+                    subprocess.run(["taskkill", "/PID", str(pid), "/F"], check=True)
+                    killed.append(f"{name} 进程（PID {pid}）已关闭")
+                except Exception as e:
+                    killed.append(f"关闭 {name} 进程失败: {e}")
+
+        # 再检测并关闭 B 的子进程 C（EscapeFromTarkov.exe）
+        c_killed = False
+        if self.b_pid:
+            try:
+                parent = psutil.Process(self.b_pid)
+
+                # 尝试等待子进程出现（最多3秒）
+                for _ in range(3):
+                    children = parent.children(recursive=True)
+                    c_proc = next((child for child in children if child.name() == "EscapeFromTarkov.exe"), None)
+                    if c_proc:
+                        c_proc.kill()
+                        killed.append(f"C 进程（EscapeFromTarkov.exe，PID {c_proc.pid}）已关闭")
+                        c_killed = True
+                        break
+                    time.sleep(1)
+
+                if not c_killed:
+                    killed.append("未检测到 C 进程（EscapeFromTarkov.exe）或其已提前退出")
+
+            except psutil.NoSuchProcess:
+                killed.append("B 进程已退出，无法检测子进程")
+            except Exception as e:
+                killed.append(f"检测/关闭 C 进程失败: {e}")
         self.logger.log_gui("\n".join(killed) if killed else "无可关闭的进程")
 
     @staticmethod
