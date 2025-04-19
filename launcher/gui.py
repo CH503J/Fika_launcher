@@ -52,11 +52,45 @@ class AppLauncherGUI:
         tk.Button(self.root, text="浏览...", command=self.select_b_file).grid(row=1, column=2, padx=(5,10), pady=10)
 
     def _create_action_buttons(self):
-        # 操作按钮居中显示
-        tk.Button(self.root, text="启动专用主机", command=self.start_a_file).grid(
-            row=2, column=0, columnspan=3, pady=10, sticky="ew")
-        tk.Button(self.root, text="一键关闭", command=self.terminate_processes).grid(
-            row=3, column=0, columnspan=3, pady=10, sticky="ew")
+        # 创建按钮容器框架（带左侧边距）
+        button_frame = ttk.Frame(self.root)
+        button_frame.grid(
+            row=2,
+            column=0,
+            columnspan=3,
+            padx=(10, 0),  # 左侧边距匹配日志框
+            pady=10,
+            sticky="ew"
+        )
+
+        # 配置三列布局（按钮|间距|空白）
+        button_frame.grid_columnconfigure(0, weight=1)
+        button_frame.grid_columnconfigure(1, weight=1)
+        button_frame.grid_columnconfigure(2, weight=8)  # 右侧留空
+
+        # 启动按钮（左侧对齐）
+        tk.Button(
+            button_frame,
+            text="启动专用主机",
+            command=self.start_a_file
+        ).grid(
+            row=0,
+            column=0,
+            padx=(0, 0),  # 右侧间距
+            sticky="w"  # 左对齐
+        )
+
+        # 关闭按钮（右侧对齐）
+        tk.Button(
+            button_frame,
+            text="一键关闭",
+            command=self.terminate_processes
+        ).grid(
+            row=0,
+            column=1,
+            padx=(0, 0),  # 左侧间距
+            sticky="w"
+        )
 
     def _create_log_tabs(self):
         # 创建Notebook容器（关键修改）

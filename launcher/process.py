@@ -14,15 +14,15 @@ class ProcessManager:
         self.a_pid = None
         self.b_pid = None
         self.b_started = False
-        self.error_pattern = re.compile(r"(error|fail)", re.IGNORECASE)
-        self.warn_pattern = re.compile(r"(warn|warning)", re.IGNORECASE)
+        # self.error_pattern = re.compile(r"(error|fail)", re.IGNORECASE)
+        # self.warn_pattern = re.compile(r"(warn|warning)", re.IGNORECASE)
 
     def start_a_file(self, a_path):
         if not os.path.exists(a_path):
-            self.logger.log_gui(f"A 文件路径无效：{a_path}")
+            self.logger.log_gui(f"服务端路径无效：{a_path}")
             return
 
-        self.logger.log_gui(f"正在启动 A 文件：{a_path}")
+        self.logger.log_gui(f"正在启动服务端：{a_path}")
         try:
             process = subprocess.Popen(
                 a_path,
@@ -36,24 +36,25 @@ class ProcessManager:
                 errors="replace"
             )
             self.a_pid = process.pid
-            self.logger.log_gui(f"A 文件已启动，PID: {self.a_pid}")
+            self.logger.log_gui(f"服务端已启动    PID: {self.a_pid}")
 
-            threading.Thread(target=self._read_a_output, args=(process,), daemon=True).start()
+            threading.Thread(target=self._read_server_output, args=(process,), daemon=True).start()
             threading.Thread(target=self._monitor_port_and_start_b, daemon=True).start()
         except Exception as e:
-            self.logger.log_gui(f"启动 A 文件失败: {e}")
+            self.logger.log_gui(f"服务端启动失败: {e}")
 
-    def _read_a_output(self, process):
-        for line in process.stdout:
-            decoded = line.strip()
-            if self.error_pattern.search(decoded) or self.warn_pattern.search(decoded):
-                self.logger.log_a(decoded)
-        process.stdout.close()
+    def _read_server_output(self, process):
+        try:
+            for line in iter(process.stdout.readline, ''):
+                decoded = line.strip()
+                self.logger.log_server(decoded)  # ✅ 正确使用server日志通道
+        except ValueError:
+            pass
 
     def _monitor_port_and_start_b(self):
         while not self.b_started:
             if self._is_port_in_use(6969):
-                self.logger.log_gui("检测到 6969 端口被占用，准备启动 B 文件")
+                self.logger.log_gui("服务端已在6969端口启动，正在启动Headless")
                 self._start_b_file()
                 break
             time.sleep(1)
@@ -61,11 +62,11 @@ class ProcessManager:
     def _start_b_file(self):
         b_path = load_config().get("b_path", "")
         if not os.path.exists(b_path):
-            self.logger.log_gui(f"B 文件路径无效：{b_path}")
+            self.logger.log_gui(f"Headless路径无效：{b_path}")
             return
 
         try:
-            self.logger.log_gui(f"尝试启动 B 文件：{b_path}")
+            self.logger.log_gui(f"正在启动Headless：{b_path}")
             process = subprocess.Popen(
                 ["powershell.exe", "-ExecutionPolicy", "Bypass", "-File", b_path],
                 stdout=subprocess.DEVNULL,
@@ -74,14 +75,14 @@ class ProcessManager:
             )
             self.b_pid = process.pid
             self.b_started = True
-            self.logger.log_gui(f"B 文件已启动，PID: {self.b_pid}")
+            self.logger.log_gui(f"Headless已启动   PID: {self.b_pid}")
         except Exception as e:
-            self.logger.log_gui(f"启动 B 文件失败: {e}")
+            self.logger.log_gui(f"Headless启动失败: {e}")
 
     def terminate_processes(self):
         killed = []
         # 先关闭 A 和 B 的主进程
-        for name, pid in [("A", self.a_pid), ("B", self.b_pid)]:
+        for name, pid in [("服务端", self.a_pid), ("Headless", self.b_pid)]:
             if pid:
                 try:
                     subprocess.run(["taskkill", "/PID", str(pid), "/F"], check=True)
@@ -101,18 +102,18 @@ class ProcessManager:
                     c_proc = next((child for child in children if child.name() == "EscapeFromTarkov.exe"), None)
                     if c_proc:
                         c_proc.kill()
-                        killed.append(f"C 进程（EscapeFromTarkov.exe，PID {c_proc.pid}）已关闭")
+                        killed.append(f"EscapeFromTarkov.exe进程（PID {c_proc.pid}）已关闭")
                         c_killed = True
                         break
                     time.sleep(1)
 
                 if not c_killed:
-                    killed.append("未检测到 C 进程（EscapeFromTarkov.exe）或其已提前退出")
+                    killed.append("未检测到EscapeFromTarkov.exe进程或其已提前退出")
 
             except psutil.NoSuchProcess:
-                killed.append("B 进程已退出，无法检测子进程")
+                killed.append("Headless进程已退出，无法检测子进程")
             except Exception as e:
-                killed.append(f"检测/关闭 C 进程失败: {e}")
+                killed.append(f"检测/关闭EscapeFromTarkov.exe进程失败: {e}")
         self.logger.log_gui("\n".join(killed) if killed else "无可关闭的进程")
 
     @staticmethod
