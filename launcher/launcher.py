@@ -12,8 +12,19 @@ import queue
 import re
 
 
+def is_port_in_use(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        result = s.connect_ex(("192.168.101.102", port))  # 检查本机所有 IP
+        return result == 0
+
+
 class AppLauncherGUI:
     def __init__(self, root):
+        self.gui_log_text = None
+        self.a_log_text = None
+        self.a_log_tab = None
+        self.gui_log_tab = None
+        self.notebook = None
         self.root = root
         self.root.title("App Launcher")
         self.config = load_config()
@@ -54,8 +65,7 @@ class AppLauncherGUI:
         tk.Button(self.root, text="浏览...", command=self.select_b_file).grid(row=1, column=2, padx=10, pady=10)
 
         tk.Button(self.root, text="启动 A 文件", command=self.start_a_file).grid(row=2, column=0, columnspan=3, pady=10)
-        tk.Button(self.root, text="一键关闭", command=self.terminate_processes).grid(row=3, column=0, columnspan=3,
-                                                                                     pady=10)
+        tk.Button(self.root, text="一键关闭", command=self.terminate_processes).grid(row=3, column=0, columnspan=3, pady=10)
 
         # 创建标签页
         self.notebook = ttk.Notebook(self.root)
@@ -196,16 +206,11 @@ class AppLauncherGUI:
 
     def monitor_port_and_start_b(self):
         while not self.b_started:
-            if self.is_port_in_use(6969):
+            if is_port_in_use(6969):
                 self.log("检测到 6969 端口被占用，准备启动 B 文件")
                 self.start_b_file()
                 break
             time.sleep(1)
-
-    def is_port_in_use(self, port):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            result = s.connect_ex(("192.168.101.102", port))  # 检查本机所有 IP
-            return result == 0
 
     def start_b_file(self):
         b_file_path = self.b_path.get()
